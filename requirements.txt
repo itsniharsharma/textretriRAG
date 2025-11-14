@@ -1,0 +1,2 @@
+dotenv
+google-genai == 1.50.1
