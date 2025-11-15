@@ -1,43 +1,89 @@
 import time
-
 import gradio as gr
-
 from generation import generate_rag_response
 
 
+# ---------------------------------------------------------
+# Streaming Response Handler
+# ---------------------------------------------------------
 def process_query_stream(query, search_type, model_type):
-    """Process the query and stream the response more efficiently"""
-    full_response = ""
-    for chunk in generate_rag_response(query, search_type, 5, model_type, stream=True):
-        full_response += chunk
+    """
+    Stream chunks from generate_rag_response()
+    to the Gradio UI smoothly.
+    """
+    accumulated = ""
 
-        # Only yield every few characters to reduce UI updates
-        if len(chunk) > 10 or chunk.endswith((".", "!", "?", "\n")):
-            time.sleep(0.01)  # Small delay for smoother updates
-            yield full_response
+    for chunk in generate_rag_response(
+        query,
+        search_type=search_type,
+        top_k=5,
+        model_type=model_type,
+        stream=True
+    ):
+        if not chunk:
+            continue
 
-    # Ensure final text is always yielded
-    yield full_response
+        accumulated += chunk
+
+        # smooth UI update
+        time.sleep(0.01)
+        yield accumulated
+
+    yield accumulated  # final output
 
 
+# ---------------------------------------------------------
+# Non-streaming Response Handler
+# ---------------------------------------------------------
 def process_query_normal(query, search_type, model_type):
-    """Process the query and return the complete response"""
-    return generate_rag_response(query, search_type, 5, model_type, stream=False)
-
-
-# Create Gradio interface
-with gr.Blocks(title="LocalRAG Q&A System", theme="soft") as demo:
-    gr.Markdown("# 📚 LocalRAG Q&A System")
-    gr.Markdown(
-        "Ask questions about the RAG paper and get answers using RAG technology!"
+    """
+    Return final complete answer.
+    """
+    return generate_rag_response(
+        query,
+        search_type=search_type,
+        top_k=5,
+        model_type=model_type,
+        stream=False
     )
+
+
+# ---------------------------------------------------------
+# Wrapper for Gradio submit button
+# ---------------------------------------------------------
+def on_submit(query, search_type, model_type, stream_enabled):
+    """
+    Wrapper that chooses streaming or normal mode.
+    """
+    if not query.strip():
+        yield "Please enter a question."
+        return
+
+    yield "Retrieving relevant context..."
+
+    if stream_enabled:
+        # hand over to streaming generator
+        for chunk in process_query_stream(query, search_type, model_type):
+            yield chunk
+    else:
+        # non-streaming mode
+        answer = process_query_normal(query, search_type, model_type)
+        yield answer
+
+
+# ---------------------------------------------------------
+# Gradio UI
+# ---------------------------------------------------------
+with gr.Blocks(title="LocalRAG Q&A System", theme="soft") as demo:
+    gr.Markdown("# LocalRAG Q&A System")
+    gr.Markdown("Ask questions about the RAG paper and get RAG-powered explanations!")
 
     with gr.Row():
         with gr.Column(scale=1):
             query_input = gr.Textbox(
                 label="Your Question",
-                placeholder="Ask a question about Retrieval-Augmented Generation...",
-                lines=4,
+                placeholder="Ask something about Retrieval-Augmented Generation...",
+                lines=4
             )
 
             with gr.Row():
@@ -45,90 +91,49 @@ with gr.Blocks(title="LocalRAG Q&A System", theme="soft") as demo:
                     ["keyword", "semantic", "hybrid"],
                     label="Search Method",
                     value="hybrid",
-                    info="Choose how to retrieve relevant information",
                 )
-
                 model_type = gr.Radio(
                     ["gemini", "ollama"],
                     label="AI Model",
                     value="gemini",
-                    info="Select which model generates your answer",
                 )
 
             stream_checkbox = gr.Checkbox(
                 label="Stream Response",
                 value=True,
-                info="See the answer as it's being generated",
+                info="Stream the answer in real-time"
             )
 
             submit_btn = gr.Button("Generate Answer", variant="primary")
 
         with gr.Column(scale=2):
-            output = gr.Textbox(label="Answer", lines=20)
+            output = gr.Textbox(
+                label="Answer",
+                lines=20,
+                placeholder="Your response will appear here..."
+            )
 
-    # Handle form submission based on streaming preference
-    def on_submit(query, search_type, model_type, stream):
-        if not query.strip():
-            return "Please enter a question."
-
-        # Initial feedback to user
-        yield (
-            "Retrieving relevant information..."
-            if stream
-            else "Retrieving relevant information..."
-        )
-
-        if stream:
-            yield from process_query_stream(query, search_type, model_type)
-        else:
-            return process_query_normal(query, search_type, model_type)
-
+    # Connect button
     submit_btn.click(
-        on_submit,
+        fn=on_submit,
         inputs=[query_input, search_type, model_type, stream_checkbox],
-        outputs=output,
-        show_progress="minimal",  # Add this for visual feedback
+        outputs=output
     )
 
-    # Add example questions
+    # Example prompts
     gr.Examples(
-        examples=[
+        [
             ["How does RAG work?", "hybrid", "gemini", True],
-            [
-                "What are the benefits of RAG compared to fine-tuning?",
-                "semantic",
-                "gemini",
-                True,
-            ],
+            ["What are the advantages of RAG vs fine-tuning?", "semantic", "gemini", True],
             ["Explain RAG architecture with diagrams", "hybrid", "ollama", True],
-            [
-                "What are common challenges in RAG implementations?",
-                "keyword",
-                "gemini",
-                False,
-            ],
+            ["What are common challenges in RAG?", "keyword", "gemini", False],
         ],
-        inputs=[query_input, search_type, model_type, stream_checkbox],
+        inputs=[query_input, search_type, model_type, stream_checkbox]
     )
 
-    gr.Markdown(
-        """
-    ### 📘 How to use this system:
-    
-    1. **Enter your question** about Retrieval-Augmented Generation (RAG)
-    2. Choose a **search method**:
-       - **Keyword**: Traditional text search
-       - **Semantic**: Meaning-based search using embeddings
-       - **Hybrid**: Combines keyword and semantic search
-    3. Select an **AI model**:
-       - **Gemini**: Google's Gemini 1.5 Flash model (requires API key)
-       - **Ollama**: Local Deepseek model running via Ollama
-    4. Toggle **streaming** to see the response generated in real-time
-    
-    The system will retrieve relevant information from the indexed RAG paper and generate a comprehensive answer based on that information.
-    """
-    )
 
-# Launch the app
+# ---------------------------------------------------------
+# Run app
+# ---------------------------------------------------------
 if __name__ == "__main__":
     demo.queue().launch()
