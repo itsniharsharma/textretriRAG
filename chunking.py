@@ -296,7 +296,7 @@ def process_images_with_captions(raw_chunks, use_gemini=True):
     if encountered_errors:
         print(f"Errors: {len(encountered_errors)}")
 
-    return processed_images   # FIXED (not tuple)
+    return processed_images   
 
 
 # ------------------------------------------------------------
