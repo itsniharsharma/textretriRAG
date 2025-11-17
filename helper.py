@@ -65,6 +65,7 @@ def get_embedding(prompt, model="nomic-embed-text"):
 
         output = response.json()
         embedding = output.get("embedding")
+        # embedding = np.array(embedding, dtype=np.float32).tolist()
 
         if embedding is None:
             print("Failed to get embedding from Ollama response.")

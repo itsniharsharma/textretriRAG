@@ -300,7 +300,7 @@ prompt = PromptTemplate(
 # ------------------------------------------------------------
 # Gemini Generation
 # ------------------------------------------------------------
-def generate_with_gemini(prompt_text, model_name="models/gemini-1.5-flash", stream=False):
+def generate_with_gemini(prompt_text, model_name="gemini-2.0-flash", stream=False):
     try:
         print(f"Initializing Gemini model: {model_name}")
         model = genai.GenerativeModel(model_name)

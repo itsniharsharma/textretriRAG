@@ -264,7 +264,8 @@ def process_images_with_captions(raw_chunks, use_gemini=True):
                     image_binary = base64.b64decode(chunk.metadata.image_base64)
 
                     # Correct image-compatible model
-                    model = genai.GenerativeModel("models/gemini-1.5-flash")
+                    # model = genai.GenerativeModel("models/gemini-1.5-flash")
+                    model = genai.GenerativeModel("gemini-2.0-flash")
 
                     prompt = (
                         "You are analyzing an image extracted from a technical document "
@@ -323,7 +324,8 @@ def process_tables_with_descriptions(raw_chunks, use_gemini=True, use_ollama=Fal
 
             if use_gemini:
                 try:
-                    model = genai.GenerativeModel("models/gemini-1.5-flash")
+                    # model = genai.GenerativeModel("models/gemini-1.5-flash")
+                    model = genai.GenerativeModel("gemini-2.0-flash")
 
                     prompt = (
                         "Analyze the following table extracted from a technical RAG document.\n\n"
